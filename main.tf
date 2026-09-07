@@ -36,3 +36,122 @@ resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public.id
   route_table_id = aws_route_table.public.id
 }
+
+#mise en place des security groups
+
+#1 security group load-balancer
+resource "aws_security_group" "alb_sg" {
+
+  name   = "application_load_balancer-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description = "https public vers le load balancer"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = { Name = "streaming-lab-load_balancer" }
+
+}
+
+#2 security group frontend
+resource "aws_security_group" "frontend_sg" {
+
+  name   = "frontend-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description     = "trafic entrant depuis le load balancer"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  ingress {
+    description     = "ingestion des flux video depuis le serveur de streaming tier2 uniquement"
+    from_port       = 1935
+    to_port         = 1935
+    protocol        = "tcp"
+    security_groups = [aws_security_group.streaming_sg.id]
+  }
+
+  ingress {
+    description = "SSH access from admin IP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["212.222.174.113/32"]
+  }
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = { Name = "streaming-lab-frontend-pages" }
+
+}
+
+#3 security group streaming 
+resource "aws_security_group" "streaming_sg" {
+
+  name   = "sever_streaming-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description = "SSH access from admin IP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["212.222.174.113/32"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = { Name = "streaming-lab-streaming" }
+}
+
+#4 security group database tier3
+resource "aws_security_group" "database_sg" {
+
+  name   = "database-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description     = "PostgreSQL depuis le Tier 1 uniquement"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.frontend_sg.id]
+  }
+
+  ingress {
+    description = "SSH access from admin IP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["212.222.174.113/32"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = { Name = "streaming-lab-database" }
+}
+

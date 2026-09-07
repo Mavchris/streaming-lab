@@ -1,0 +1,153 @@
+provider "aws" { region = "eu-west-3" }
+
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+
+  tags = { Name = "streaming_lab_vpc" }
+
+}
+# 1. Sous-réseau public
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "streaming_public_subnet" }
+}
+# 2. Passerelle Internet
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "streaming-lab-gateway" }
+
+}
+# 3. Table de routage pointant vers l'IGW
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = { Name = "streaming-lab-public-route" }
+
+}
+
+# 4. Association du sous-réseau à la table de routage
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+#mise en place des security groups
+
+#1 security group load-balancer
+resource "aws_security_group" "alb_sg"{
+
+ name = "application_load_balancer-sg"
+ vpc_id = aws_vpc.main.id
+
+ingress {
+	description " https public vers le load balancer"
+	from_port  = 443
+	to_port    = 443
+	protocol   ="tcp"
+	cidr_blocks = ["0.0.0.0/0"] 
+	}
+ egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+#2 security group frontend
+resource "aws_security_group" "frontend_sg"{
+
+ name = "frontend-sg
+ vpc_id = aws_vpc.main.id
+
+ ingress {
+        description " trafic entrant depuis le load balancer"
+        from_port  = 443
+        to_port    = 443
+        protocol   =tcp
+        security_groups = [aws-security-group.alb_sg.id]
+        }
+
+ ingress {
+        description " ingestion des flux video depuis le serveur de streaming tier2 uniquement"
+        from_port  = 1935   
+        to_port    = 1935 
+        protocol   =tcp  
+        security_groups = [aws-security-group.streaming_sg.id]
+        }
+
+ ingress {
+        description " connexion ssh de l'admin"
+        from_port  = 22  
+        to_port    = 22
+        protocol   =tcp     
+        cidr_blocks = ["212.222.174.113/32"]
+        }
+
+ egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+#3 security group streaming 
+resource "aws_security_groups" "streaming_sg"{
+
+ name = "sever_streaming-sg
+ vpc_id = aws_vpc.main.id
+
+ingress {
+        description " connexion ssh depuis l'adresse de l'admin uniquement"
+        from_port  = 22
+        to_port    = 22
+        protocol   =tcp
+        cidr_blocks = ["212.222.174.113/32"]  
+        }
+ egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+#4 security group database tier3
+resource "aws_security_group" "database_sg"{
+
+ name = "database-sg
+ vpc_id = aws_vpc.main.id
+
+ ingress {
+        description " ingestion des flux video depuis le serveur de streaming tier2 uniquement"
+        from_port  = 1935
+        to_port    = 1935
+        protocol   =tcp
+        security_groups = [aws-security-group.frontend_sg.id]
+        }
+
+ ingress {
+        description " connexion ssh de l'admin"
+        from_port  = 22    
+        to_port    = 22  
+        protocol   =tcp
+        cidr_blocks = ["212.222.174.113/32"]
+
+        }
+
+
+ egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
