@@ -4,8 +4,17 @@ resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 
   tags = { Name = "streaming_lab_vpc" }
-
 }
+
+  data "aws_ami" "ubuntu" {
+    most_recent = true
+    owners      = ["099720109477"]
+    filter {
+      name   = "name"
+      values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+    }
+  }
+
 # 1. Sous-réseau public
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
@@ -154,4 +163,40 @@ resource "aws_security_group" "database_sg" {
   }
   tags = { Name = "streaming-lab-database" }
 }
+
+#creation des instance pour les 3 tiers
+
+#A instance frontend
+resource "aws_instance" "frontend" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.frontend_sg.id]
+  key_name               = "streaming-key"
+
+  tags = { Name = "tier1-frontend" }
+}
+
+#B instance streaming
+resource "aws_instance" "streaming" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.streaming_sg.id]
+  key_name               = "streaming-key"
+
+  tags = { Name = "tier2-streaming" }
+}
+
+#C intance database
+resource "aws_instance" "database" {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.database_sg.id]
+  key_name               = "streaming-key"
+
+  tags = { Name = "tier3-database" }
+}
+
 

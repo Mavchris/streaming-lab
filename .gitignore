@@ -2,4 +2,6 @@
 *.tfstate
 *.tfstate.*
 *.pem
+*.key
+*.tfo
 terraform.tfvars
