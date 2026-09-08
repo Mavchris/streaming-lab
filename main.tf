@@ -6,14 +6,14 @@ resource "aws_vpc" "main" {
   tags = { Name = "streaming_lab_vpc" }
 }
 
-  data "aws_ami" "ubuntu" {
-    most_recent = true
-    owners      = ["099720109477"]
-    filter {
-      name   = "name"
-      values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-    }
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+  filter {
+  name   = "name"
+  values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
+}
 
 # 1. Sous-réseau public
 resource "aws_subnet" "public" {
@@ -173,6 +173,7 @@ resource "aws_instance" "frontend" {
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.frontend_sg.id]
   key_name               = "streaming-key"
+  iam_instance_profile	 = aws_iam_instance_profile.frontend_profile.name
 
   tags = { Name = "tier1-frontend" }
 }
@@ -199,4 +200,53 @@ resource "aws_instance" "database" {
   tags = { Name = "tier3-database" }
 }
 
+
+#creation d'un parametre ssm pour; d'un iam-role et d'une policy lié a cet iam
+
+#creation du secret le parametre ssm
+
+resource "aws_ssm_parameter" "database_password" {
+  name  = "/streaming-app/db-password"
+  type  = "SecureString"
+  value = "Monpassword2026db_secret"
+
+  tags = { Name = "mot_de_passe_base_de_donnees" }
+}
+
+#creation d'un role iam
+resource "aws_iam_role" "frontend_role" {
+  name = "frontend-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+    Action    = "sts:AssumeRole"
+    Effect    = "Allow"
+    Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+  tags = { Name = "role pour le service frontend" }
+}
+
+# creation d'une policy attache a notre role frontend_role qui ne poura que faire une action lire le mot-de-passe de tier3
+
+resource "aws_iam_role_policy" "read_secret_only" {
+  name = "read-db-secret-only"
+  role = aws_iam_role.frontend_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+    Action    = "ssm:GetParameter"
+    Effect    = "Allow"
+    Resource = aws_ssm_parameter.database_password.arn
+    }]
+  })
+}
+
+#creation d'une instance profile qui va faire la liason entre mon instance frontend et le role iam_frontend
+
+resource "aws_iam_instance_profile" "frontend_profile" {
+  name = "frontend-profile"
+  role = aws_iam_role.frontend_role.name
+
+}
 
