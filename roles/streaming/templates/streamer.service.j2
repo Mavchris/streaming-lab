@@ -1,0 +1,11 @@
+[Unit]
+Description=Streamer FFmpeg vers le frontend
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/ffmpeg -stream_loop -1 -re -i /videos/sample.mp4 -c:v libx264 -c:a aac -f flv rtmp://{{ hostvars['tier1']['private_ip'] }}:1935/live/stream
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

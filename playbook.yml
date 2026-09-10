@@ -4,3 +4,7 @@
   roles:
     - database
 
+- hosts: streaming
+  become: true
+  roles:
+    - streaming
