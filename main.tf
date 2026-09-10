@@ -385,3 +385,19 @@ resource "aws_iam_instance_profile" "frontend_profile" {
 
 }
 
+#creation des output pour ansible
+output "frontend_ip" {
+  value = aws_instance.frontend.public_ip
+}
+
+output "streaming_private_ip" {
+  value = aws_instance.streaming.private_ip
+}
+
+output "database_private_ip" {
+  value = aws_instance.database.private_ip
+}
+
+output "alb_dns" {
+  value = aws_lb.main.dns_name
+}
