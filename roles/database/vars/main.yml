@@ -1,0 +1,4 @@
+---
+db_name: streaming_db
+db_user_name: Chrisuser
+db_user_password: "{{ lookup('amazon.aws.aws_ssm', '/streaming-app/db-password', region='eu-west-3') }}"

@@ -1,0 +1,39 @@
+---
+- name: Installer PostgreSQL
+  apt:
+    name: postgresql
+    state: present
+    update_cache: yes
+- name: Installer acl, necessaire pour que become_user fonctionne correctement
+  apt:
+    name: acl
+    state: present
+
+- name: S'assurer que le service est demarre et actif au boot
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Installer le paquet python3-psycopg2, requis par les modules postgresql
+  ansible.builtin.package:
+    name: python3-psycopg2
+    state: present
+
+- name: Creer la base de donnees applicative
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    encoding: UTF-8
+    lc_collate: en_US.UTF-8
+    lc_ctype: en_US.UTF-8
+    template: template0
+    state: present
+
+- name: Creer l'utilisateur applicatif avec le mot de passe recupere depuis SSM
+  become_user: postgres
+  community.postgresql.postgresql_user:
+   login_db: "{{ db_name }}"
+    name: "{{ db_user_name }}"
+    password: "{{ db_user_password }}"
+    state: present

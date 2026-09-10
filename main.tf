@@ -75,6 +75,11 @@ resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "streaming-lab-private-route" }
 
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
 }
 
 
@@ -400,4 +405,19 @@ output "database_private_ip" {
 
 output "alb_dns" {
   value = aws_lb.main.dns_name
+}
+
+#aide temporaire pour connecte la base de donnee au reseau internet
+
+
+resource "aws_eip" "streaming_temp" {
+  domain   = "vpc"
+  instance = aws_instance.streaming.id
+  tags     = { Name = "temp-streaming-internet" }
+}
+
+resource "aws_eip" "database_temp" {
+  domain   = "vpc"
+  instance = aws_instance.database.id
+  tags     = { Name = "temp-database-internet" }
 }
