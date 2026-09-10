@@ -8,3 +8,8 @@
   become: true
   roles:
     - streaming
+
+- hosts: frontend
+  become: true
+  roles:
+    - frontend

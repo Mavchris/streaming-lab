@@ -1,0 +1,46 @@
+---
+- name: Installer Docker
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Installer le module Python docker, requis par Ansible pour piloter Docker
+  apt:
+    name: python3-docker
+    state: present
+
+- name: Demarrer et activer Docker
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Creer un reseau Docker dedie pour que les deux conteneurs se parlent
+  community.docker.docker_network:
+    name: appnet
+    state: present
+
+- name: Lancer NGINX avec le module RTMP, jamais expose directement
+  community.docker.docker_container:
+    name: nginx-rtmp
+    image: tiangolo/nginx-rtmp
+    state: started
+    restart_policy: always
+    networks:
+      - name: appnet
+    ports:
+      - "1935:1935"
+
+- name: Lancer le WAF OWASP ModSecurity, seul point d'entree HTTP
+  community.docker.docker_container:
+    name: waf
+    image: owasp/modsecurity-crs:nginx-alpine
+    state: started
+    restart_policy: always
+    networks:
+      - name: appnet
+    env:
+      BACKEND: "http://nginx-rtmp:80"
+    ports:
+      - "80:80"
