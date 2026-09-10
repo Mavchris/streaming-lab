@@ -10,18 +10,48 @@ data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"]
   filter {
-  name   = "name"
-  values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 }
 
-# 1. Sous-réseau public
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+# 1. creation Sous-réseau public et privéé
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   map_public_ip_on_launch = true
+  availability_zone       = data.aws_availability_zones.available.names[0]
   tags                    = { Name = "streaming_public_subnet" }
 }
+
+resource "aws_subnet" "private" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  map_public_ip_on_launch = false
+  tags                    = { Name = "streaming_private_subnet" }
+}
+
+resource "aws_subnet" "alb1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "alb1_subnet" }
+  availability_zone       = data.aws_availability_zones.available.names[1]
+}
+
+resource "aws_subnet" "alb2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.4.0/24"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "alb2_subnet" }
+  availability_zone       = data.aws_availability_zones.available.names[2]
+}
+
+
 # 2. Passerelle Internet
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
@@ -40,11 +70,34 @@ resource "aws_route_table" "public" {
 
 }
 
-# 4. Association du sous-réseau à la table de routage
+# 4. Table de routage privée
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  tags   = { Name = "streaming-lab-private-route" }
+
+}
+
+
+# 5. Association des sous-réseaux à la table de routage
 resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public.id
   route_table_id = aws_route_table.public.id
 }
+
+resource "aws_route_table_association" "alb1" {
+  subnet_id      = aws_subnet.alb1.id
+  route_table_id = aws_route_table.public.id
+}
+resource "aws_route_table_association" "alb2" {
+  subnet_id      = aws_subnet.alb2.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private" {
+  subnet_id      = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
+}
+
 
 #mise en place des security groups
 
@@ -94,13 +147,12 @@ resource "aws_security_group" "frontend_sg" {
   }
 
   ingress {
-    description = "SSH access from admin IP"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["212.222.174.113/32"]
+    description     = "connection admin via EICE"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.eice_sg.id]
   }
-
 
   egress {
     from_port   = 0
@@ -119,12 +171,14 @@ resource "aws_security_group" "streaming_sg" {
   vpc_id = aws_vpc.main.id
 
   ingress {
-    description = "SSH access from admin IP"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["212.222.174.113/32"]
+    description     = "connection admin via EICE"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.eice_sg.id]
   }
+
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -149,12 +203,14 @@ resource "aws_security_group" "database_sg" {
   }
 
   ingress {
-    description = "SSH access from admin IP"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["212.222.174.113/32"]
+    description     = "connection admin via EICE"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.eice_sg.id]
   }
+
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -163,6 +219,32 @@ resource "aws_security_group" "database_sg" {
   }
   tags = { Name = "streaming-lab-database" }
 }
+
+#5 security group ec2 instance connection endpoint 
+resource "aws_security_group" "eice_sg" {
+
+  name   = "instance_connection-sg"
+  vpc_id = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = { Name = "instance-connection-endpoint-lab-streaming" }
+}
+
+#6. creation d'une instance de connection EC2 pour la l'administration et la maintenance de mes instances
+resource "aws_ec2_instance_connect_endpoint" "admin" {
+  subnet_id          = aws_subnet.private.id
+  security_group_ids = [aws_security_group.eice_sg.id]
+
+  tags = { Name = "streaming-lab-ice" }
+
+}
+
+
 
 #creation des instance pour les 3 tiers
 
@@ -173,7 +255,7 @@ resource "aws_instance" "frontend" {
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.frontend_sg.id]
   key_name               = "streaming-key"
-  iam_instance_profile	 = aws_iam_instance_profile.frontend_profile.name
+  iam_instance_profile   = aws_iam_instance_profile.frontend_profile.name
 
   tags = { Name = "tier1-frontend" }
 }
@@ -182,7 +264,7 @@ resource "aws_instance" "frontend" {
 resource "aws_instance" "streaming" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.public.id
+  subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [aws_security_group.streaming_sg.id]
   key_name               = "streaming-key"
 
@@ -193,7 +275,7 @@ resource "aws_instance" "streaming" {
 resource "aws_instance" "database" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.public.id
+  subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [aws_security_group.database_sg.id]
   key_name               = "streaming-key"
 
@@ -219,9 +301,9 @@ resource "aws_iam_role" "frontend_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-    Action    = "sts:AssumeRole"
-    Effect    = "Allow"
-    Principal = { Service = "ec2.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
     }]
   })
   tags = { Name = "role pour le service frontend" }
@@ -235,9 +317,9 @@ resource "aws_iam_role_policy" "read_secret_only" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-    Action    = "ssm:GetParameter"
-    Effect    = "Allow"
-    Resource = aws_ssm_parameter.database_password.arn
+      Action   = "ssm:GetParameter"
+      Effect   = "Allow"
+      Resource = aws_ssm_parameter.database_password.arn
     }]
   })
 }
