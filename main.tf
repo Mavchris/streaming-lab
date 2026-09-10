@@ -75,10 +75,6 @@ resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "streaming-lab-private-route" }
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
 
 }
 
@@ -119,6 +115,15 @@ resource "aws_security_group" "alb_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  ingress {
+  description = "http public vers le load balancer, faute de certificat pour du https"
+  from_port   = 80
+  to_port     = 80
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}   
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -303,7 +308,7 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [aws_subnet.alb1.id, aws_subnet.alb2.id]
+  subnets            = [aws_subnet.public.id, aws_subnet.alb2.id]
 
   tags = { Name = "streaming-lab-alb" }
 }
@@ -409,15 +414,3 @@ output "alb_dns" {
 
 #aide temporaire pour connecte la base de donnee au reseau internet
 
-
-resource "aws_eip" "streaming_temp" {
-  domain   = "vpc"
-  instance = aws_instance.streaming.id
-  tags     = { Name = "temp-streaming-internet" }
-}
-
-resource "aws_eip" "database_temp" {
-  domain   = "vpc"
-  instance = aws_instance.database.id
-  tags     = { Name = "temp-database-internet" }
-}
