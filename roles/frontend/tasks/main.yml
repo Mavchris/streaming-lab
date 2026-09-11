@@ -24,11 +24,13 @@
   template:
     src: nginx.conf.j2
     dest: /opt/nginx.conf
+  notify: "redemarrer nginx-rtmp"
 
 - name: Deployer une page d'accueil minimale
   template:
     src: index.html.j2
     dest: /opt/index.html
+  notify: "redemarrer nginx-rtmp"
 
 - name: Lancer NGINX avec le module RTMP, jamais expose directement
   community.docker.docker_container:

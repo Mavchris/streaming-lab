@@ -1,0 +1,6 @@
+---
+- name: Recreer le conteneur nginx-rtmp
+  community.docker.docker_container:
+    name: nginx-rtmp
+    state: absent
+  listen: "redemarrer nginx-rtmp"

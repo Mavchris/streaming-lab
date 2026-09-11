@@ -1,8 +1,242 @@
 <!DOCTYPE html>
-<html>
-<head><title>Streaming Lab</title></head>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Streaming Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f4f9f6;
+    --ink: #10241c;
+    --muted: #5b6f65;
+    --green: #178a4c;
+    --green-deep: #0e5c33;
+    --line: #d8e6dd;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Manrope', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 40px;
+  }
+
+  .mark {
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+  }
+
+  .who {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .hero {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: rise 0.6s ease-out forwards;
+  }
+
+  @keyframes rise {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--green-deep);
+    margin-bottom: 14px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(23, 138, 76, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(23, 138, 76, 0); }
+  }
+
+  video {
+    width: 100%;
+    border-radius: 6px;
+    background: #0b1a12;
+    display: block;
+  }
+
+  video:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 3px;
+  }
+
+  p.lede {
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 60ch;
+    margin: 20px 0 48px;
+  }
+
+  h2 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin: 0 0 16px;
+  }
+
+  .tiers {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 48px;
+    border-top: 1px solid var(--line);
+  }
+
+  .tier {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tier-name { font-weight: 500; }
+
+  .tier-role {
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+
+  .tier-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--green-deep);
+    white-space: nowrap;
+  }
+
+  .security {
+    border-left: 2px solid var(--green);
+    padding-left: 20px;
+  }
+
+  .security ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .security li {
+    padding: 8px 0;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  footer {
+    margin-top: 64px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  footer a {
+    color: var(--green-deep);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero, .dot { animation: none; }
+  }
+
+  @media (max-width: 480px) {
+    .tier { flex-direction: column; gap: 4px; }
+  }
+</style>
+</head>
 <body>
-<h1>Ca fonctionne</h1>
-<p>Frontend operationnel, derriere le WAF et le load balancer.</p>
+<div class="wrap">
+
+  <header>
+    <span class="mark">Streaming Lab</span>
+    <span class="who">Christian Ngiamba · Télécom Paris</span>
+  </header>
+
+  <div class="hero">
+    <div class="status"><span class="dot"></span>En direct</div>
+    <video id="video" controls muted autoplay playsinline></video>
+    <p class="lede">Ce flux traverse un load balancer, un pare-feu applicatif et un serveur en subnet public, depuis une source isolée qui ne reçoit aucune connexion entrante.</p>
+  </div>
+
+  <h2>Les trois tiers</h2>
+  <div class="tiers">
+    <div class="tier">
+      <span class="tier-name">Frontend</span>
+      <span class="tier-role">Reçoit le flux et le sert aux visiteurs</span>
+      <span class="tier-meta">public · 80</span>
+    </div>
+    <div class="tier">
+      <span class="tier-name">Streaming</span>
+      <span class="tier-role">Génère et pousse la vidéo</span>
+      <span class="tier-meta">privé · 1935</span>
+    </div>
+    <div class="tier">
+      <span class="tier-name">Base de données</span>
+      <span class="tier-role">Stocke les métadonnées</span>
+      <span class="tier-meta">privé · 5432</span>
+    </div>
+  </div>
+
+  <h2>Sécurité de l'architecture</h2>
+  <div class="security">
+    <ul>
+      <li>Segmentation réseau par groupes de sécurité référencés entre eux, jamais par plage d'IP ouverte</li>
+      <li>Aucun port SSH exposé, l'administration passe par un tunnel EC2 Instance Connect Endpoint</li>
+      <li>Le mot de passe de la base est lu depuis un coffre AWS, jamais écrit dans le code</li>
+      <li>Un rôle IAM limité à une seule action sur une seule ressource, appliqué au frontend</li>
+    </ul>
+  </div>
+
+  <footer>
+    Terraform · Ansible · Docker · <a href="https://github.com/Mavchris/streaming-lab">code source</a>
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script>
+  const video = document.getElementById('video');
+  const src = '/hls/stream.m3u8';
+  if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(video);
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = src;
+  }
+</script>
 </body>
 </html>
